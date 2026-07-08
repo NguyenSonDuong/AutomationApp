@@ -1,0 +1,17 @@
+{
+  "name": "electron-automation-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "npx yarn install && npx yarn --cwd server install && npx yarn --cwd frontend install && npx yarn --cwd desktop install",
+    "server": "npx yarn --cwd server dev",
+    "frontend": "npx yarn --cwd frontend dev",
+    "desktop": "npx yarn --cwd desktop start",
+    "start": "concurrently --kill-others -n \"server,frontend,desktop\" -c \"blue,green,magenta\" \"npx yarn server\" \"npx yarn frontend\" \"wait-on http://localhost:5182 && npx yarn desktop\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "wait-on": "^7.2.0",
+    "yarn": "^1.22.22"
+  }
+}

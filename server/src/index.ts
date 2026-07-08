@@ -182,6 +182,37 @@ async function bootstrap() {
     // 8. Attach Socket.io to the HTTP Server
     io.attach(server);
 
+    // Proxy websocket events from Python automation server (Port 5000) to clients on Port 3000
+    const { io: ClientIO } = require('socket.io-client');
+    const pythonSocket = ClientIO('http://localhost:5000', {
+      reconnectionDelayMax: 10000,
+      autoConnect: true
+    });
+
+    pythonSocket.on('connect', () => {
+      console.log('[Socket Proxy] Connected to Python automation engine (Port 5000)');
+    });
+
+    pythonSocket.on('flow_execution_status', (data: any) => {
+      io.emit('flow_execution_status', data);
+    });
+
+    pythonSocket.on('proxy_checked', (data: any) => {
+      io.emit('proxy_checked', data);
+    });
+
+    pythonSocket.on('proxy_check_all_finished', (data: any) => {
+      io.emit('proxy_check_all_finished', data);
+    });
+
+    pythonSocket.on('flow_updated', (data: any) => {
+      io.emit('flow_updated', data);
+    });
+
+    pythonSocket.on('disconnect', () => {
+      console.log('[Socket Proxy] Disconnected from Python automation engine (Port 5000)');
+    });
+
     // 9. Socket.io Event Handling
     io.on('connection', (socket) => {
       console.log(`[Socket] Client connected: ${socket.id}`);

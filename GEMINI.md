@@ -53,9 +53,17 @@ Sơ đồ phân tầng từ trong ra ngoài:
 ---
 
 ## 🎨 Quy Tắc Giao Diện và Thiết Kế `/frontend`
-*   **Mỹ thuật (Aesthetics)**: Bắt buộc sử dụng giao diện hiện đại, bóng bẩy (Premium).
-*   **CSS**: Sử dụng **Vanilla CSS** thuần túy để tạo ra hiệu ứng chuyển động mượt mà (micro-animations), các thành phần bo góc, hiệu ứng kính mờ (glassmorphism), và bảng màu hài hòa (Dark Theme mặc định). Không sử dụng TailwindCSS trừ khi có yêu cầu cụ thể.
-*   **Tương tác thực tế**: Giao tiếp qua HTTP API để lấy dữ liệu tĩnh ban đầu và lắng nghe sự kiện từ Socket.io để cập nhật real-time trạng thái giao diện lập tức mà không cần reload.
+*   **Mỹ thuật (Aesthetics)**: Thiết kế theo ngôn ngữ **Flat Design** tối giản hiện đại. Sử dụng các đường nét dứt khoát, màu sắc đơn sắc rõ ràng, kiểu chữ sắc nét (Outfit, Inter) và hạn chế đổ bóng/gradient không cần thiết.
+*   **Bảng màu (Warm Light Theme)**: Bắt buộc sử dụng hệ màu ấm mặc định:
+    *   Màu nền chính: Cream Beige (`#faf6f0`)
+    *   Màu nền phụ: Warm Beige (`#f4eae1`)
+    *   Màu nền card: Trắng (`#ffffff`)
+    *   Màu viền: Soft Clay (`#e5d5c5`)
+    *   Màu chữ chính: Dark Brown (`#3d3228`)
+    *   Màu nhấn: Amber/Orange (`#d97706` / `#b45309`)
+*   **CSS**: Sử dụng **Vanilla CSS** thuần túy phối hợp với các biến CSS `:root` để thiết lập Design System đồng nhất. Tạo các hiệu ứng phát sáng mượt mà (`glow-node-active`, `glow-node-success`, `glow-node-failed`) phục vụ cho các trạng thái hoạt động thực tế.
+*   **Trực quan hóa kịch bản**: Sử dụng thư viện **React Flow** để thiết kế sơ đồ kéo thả kịch bản tự động hóa trực quan (phần tử node tùy biến, đường kết nối vuông góc, nút chuyển hướng waypoint).
+*   **Tương tác thực tế**: Giao tiếp qua HTTP API (Port 3000) để lấy dữ liệu tĩnh ban đầu và kết nối Socket.io để cập nhật real-time trạng thái chạy đa luồng lập tức mà không cần reload.
 
 ---
 

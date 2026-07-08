@@ -220,3 +220,4 @@ cmake-build-*/
 
 # IntelliJ build output
 out/
+node_modules

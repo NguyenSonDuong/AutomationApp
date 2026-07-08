@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Play, X, Trash2, Plus, Shield } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
 interface RunModalProps {
   isOpen: boolean;
@@ -218,19 +219,17 @@ const RunModal: React.FC<RunModalProps> = ({ isOpen, onClose, onConfirm }) => {
                   </div>
                   <div className="form-group" style={{ flex: 1 }}>
                     <label>Proxy liên kết (Tùy chọn)</label>
-                    <select
-                      className="form-control form-control-sm"
+                    <CustomSelect
                       value={newProxy}
-                      onChange={(e) => setNewProxy(e.target.value)}
-                      style={{ height: '32px', padding: '4px 8px', fontSize: '0.8rem' }}
-                    >
-                      <option value="">-- Không dùng Proxy --</option>
-                      {proxies.map(pr => (
-                        <option key={pr.id} value={pr.id}>
-                          [{pr.type || 'HTTP'}] {pr.host}:{pr.port} ({pr.country || '?'})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setNewProxy(val)}
+                      options={[
+                        { value: '', label: '-- Không dùng Proxy --' },
+                        ...proxies.map(pr => ({
+                          value: String(pr.id),
+                          label: `[${pr.type || 'HTTP'}] ${pr.host}:${pr.port} (${pr.country || '?'})`
+                        }))
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -270,34 +269,24 @@ const RunModal: React.FC<RunModalProps> = ({ isOpen, onClose, onConfirm }) => {
                           
                           <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
                             <label style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Proxy sử dụng:</label>
-                            <select
+                            <CustomSelect
                               value={profileProxyMap[prof.id] !== undefined ? profileProxyMap[prof.id] : (prof.proxyId || -1)}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value);
+                              onChange={(val) => {
+                                const numVal = parseInt(val);
                                 setProfileProxyMap({
                                   ...profileProxyMap,
-                                  [prof.id]: val
+                                  [prof.id]: numVal
                                 });
-                                handleUpdateProfileProxy(prof.id, val);
+                                handleUpdateProfileProxy(prof.id, numVal);
                               }}
-                              style={{
-                                width: '100%',
-                                padding: '4px 6px',
-                                fontSize: '0.75rem',
-                                borderRadius: '4px',
-                                border: '1px solid var(--border-color)',
-                                backgroundColor: '#fff',
-                                color: 'var(--text-primary)',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              <option value={-1}>-- Không dùng Proxy --</option>
-                              {proxies.map(pr => (
-                                <option key={pr.id} value={pr.id}>
-                                  [{pr.type || 'HTTP'}] {pr.host}:{pr.port} ({pr.country || '?'})
-                                </option>
-                              ))}
-                            </select>
+                              options={[
+                                { value: -1, label: '-- Không dùng Proxy --' },
+                                ...proxies.map(pr => ({
+                                  value: pr.id,
+                                  label: `[${pr.type || 'HTTP'}] ${pr.host}:${pr.port} (${pr.country || '?'})`
+                                }))
+                              ]}
+                            />
                           </div>
                           
                           <div className="profile-card-tags" style={{ marginTop: '8px' }}>

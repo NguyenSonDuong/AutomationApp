@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Folder, Trash2, Plus, Search, Pencil, Shield, Globe
 } from 'lucide-react';
+import CustomDialog from './CustomDialog';
+import UnifiedTable, { type Column } from './UnifiedTable';
+import CustomSelect from './CustomSelect';
 
 const BASE_URL = 'http://localhost:3000/api';
 
@@ -12,9 +15,13 @@ const ProfileManager: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProfileIds, setSelectedProfileIds] = useState<number[]>([]);
 
-  // Form states
-  const [showAddForm, setShowAddForm] = useState(false);
+  // Dialog states
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<any>(null);
+
+  // Delete states
+  const [deletingProfile, setDeletingProfile] = useState<any>(null);
+  const [isDeleteManyOpen, setIsDeleteManyOpen] = useState(false);
 
   // Single Profile Create Form Inputs
   const [name, setName] = useState('');
@@ -59,10 +66,20 @@ const ProfileManager: React.FC = () => {
     }
   };
 
-  const handleCreateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
+  const handleOpenAdd = () => {
+    setName('');
+    setFolderName('');
+    setUserAgent('');
+    setProxyId(-1);
+    setIsAddOpen(true);
+  };
 
+  const handleCreateProfile = () => {
+    if (!name.trim()) return;
+    triggerCreateProfile();
+  };
+
+  const triggerCreateProfile = async () => {
     try {
       const res = await fetch(`${BASE_URL}/chrome-profiles`, {
         method: 'POST',
@@ -78,12 +95,7 @@ const ProfileManager: React.FC = () => {
       if (res.ok) {
         const newProf = await res.json();
         setProfiles([newProf, ...profiles]);
-        // Reset form
-        setName('');
-        setFolderName('');
-        setUserAgent('');
-        setProxyId(-1);
-        setShowAddForm(false);
+        setIsAddOpen(false);
       } else {
         const err = await res.json();
         alert(err.error || "Tạo profile thất bại");
@@ -100,8 +112,7 @@ const ProfileManager: React.FC = () => {
     setEditProxyId(profile.proxyId || -1);
   };
 
-  const handleUpdateProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUpdateProfileSubmit = async () => {
     if (!editingProfile || !editName.trim()) return;
 
     try {
@@ -131,16 +142,17 @@ const ProfileManager: React.FC = () => {
     }
   };
 
-  const handleDeleteProfile = async (id: number) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa Chrome Profile này?")) return;
+  const handleDeleteProfileSubmit = async () => {
+    if (!deletingProfile) return;
 
     try {
-      const res = await fetch(`${BASE_URL}/chrome-profiles/${id}`, {
+      const res = await fetch(`${BASE_URL}/chrome-profiles/${deletingProfile.id}`, {
         method: 'DELETE'
       });
       if (res.ok) {
-        setProfiles(profiles.filter(p => p.id !== id));
-        setSelectedProfileIds(selectedProfileIds.filter(x => x !== id));
+        setProfiles(profiles.filter(p => p.id !== deletingProfile.id));
+        setSelectedProfileIds(selectedProfileIds.filter(x => x !== deletingProfile.id));
+        setDeletingProfile(null);
       }
     } catch (e) {
       console.error("Xóa profile thất bại", e);
@@ -166,9 +178,8 @@ const ProfileManager: React.FC = () => {
     }
   };
 
-  const handleDeleteMultiple = async () => {
+  const handleDeleteMultipleSubmit = async () => {
     if (selectedProfileIds.length === 0) return;
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedProfileIds.length} profiles đã chọn?`)) return;
 
     try {
       const res = await fetch(`${BASE_URL}/chrome-profiles`, {
@@ -179,6 +190,7 @@ const ProfileManager: React.FC = () => {
       if (res.ok) {
         setProfiles(profiles.filter(p => !selectedProfileIds.includes(p.id)));
         setSelectedProfileIds([]);
+        setIsDeleteManyOpen(false);
       } else {
         alert("Xóa hàng loạt profiles thất bại!");
       }
@@ -201,6 +213,75 @@ const ProfileManager: React.FC = () => {
   const withProxyCount = profiles.filter(p => p.proxyId !== null && p.proxyId !== undefined).length;
   const customUACount = profiles.filter(p => p.userAgent !== null && p.userAgent !== undefined && p.userAgent !== '').length;
 
+  const columns: Column[] = [
+    { 
+      key: 'select', 
+      label: (
+        <input 
+          type="checkbox" 
+          checked={filteredProfiles.length > 0 && filteredProfiles.every(p => selectedProfileIds.includes(p.id))}
+          onChange={handleSelectAll}
+          style={{ cursor: 'pointer', accentColor: 'var(--color-accent)' }}
+        />
+      ), 
+      initialWidth: 50, 
+      minWidth: 40 
+    },
+    { key: 'name', label: 'Tên Chrome Profile', initialWidth: 200, minWidth: 100 },
+    { key: 'folderName', label: 'Thư mục (Folder Name)', initialWidth: 160, minWidth: 80 },
+    { key: 'userAgent', label: 'User Agent', initialWidth: 250, minWidth: 120 },
+    { key: 'proxy', label: 'Proxy Liên Kết', initialWidth: 220, minWidth: 120 },
+    { key: 'actions', label: 'Thao tác', initialWidth: 120, minWidth: 80 }
+  ];
+
+  const renderRow = (p: any, _idx: number, _widths: number[]) => {
+    const isChecked = selectedProfileIds.includes(p.id);
+    return (
+      <tr key={p.id} className={isChecked ? 'row-selected' : ''}>
+        <td>
+          <input 
+            type="checkbox" 
+            checked={isChecked}
+            onChange={() => handleSelectProfile(p.id)}
+            style={{ cursor: 'pointer', accentColor: 'var(--color-accent)' }}
+          />
+        </td>
+        <td className="bold-cell" style={{ fontWeight: 700 }}>{p.name}</td>
+        <td><code className="flat-code">{p.folderName}</code></td>
+        <td title={p.userAgent || 'Mặc định'}>{p.userAgent || 'Trình duyệt hệ thống'}</td>
+        <td>
+          {p.proxyDetail ? (
+            <span className="profile-badge badge-proxy">
+              [{p.proxyDetail.type}] {p.proxyDetail.host}:{p.proxyDetail.port}
+            </span>
+          ) : (
+            <span className="muted" style={{ fontStyle: 'italic', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Không liên kết</span>
+          )}
+        </td>
+        <td>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button 
+              className="btn-action" 
+              title="Sửa thông tin" 
+              onClick={() => handleOpenEditModal(p)}
+              style={{ color: 'var(--color-accent)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              <Pencil size={16} />
+            </button>
+            <button 
+              className="btn-action" 
+              title="Xóa profile" 
+              onClick={() => setDeletingProfile(p)}
+              style={{ color: 'var(--color-error)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <div className="proxy-manager-container" style={{
       display: 'flex',
@@ -209,7 +290,7 @@ const ProfileManager: React.FC = () => {
       height: '100%',
       padding: '24px',
       backgroundColor: 'var(--bg-primary)',
-      overflowY: 'auto'
+      overflow: 'hidden'
     }}>
       {/* 1. Header & Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -227,7 +308,7 @@ const ProfileManager: React.FC = () => {
           <button 
             type="button" 
             className="btn-primary" 
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={handleOpenAdd}
             style={{ width: 'auto', padding: '10px 16px' }}
           >
             <Plus size={14} />
@@ -269,126 +350,7 @@ const ProfileManager: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Add Form */}
-      {showAddForm && (
-        <form onSubmit={handleCreateProfile} className="add-profile-form" style={{ marginBottom: '24px' }}>
-          <h4>Thêm Mới Chrome Profile</h4>
-          <div className="form-row">
-            <div className="form-group" style={{ flex: 2 }}>
-              <label>Tên Profile *</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                placeholder="Ví dụ: Account Facebook 01" 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
-                required 
-              />
-            </div>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label>Tên thư mục (Folder Name)</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                placeholder="Để trống để tự tạo..." 
-                value={folderName} 
-                onChange={(e) => setFolderName(e.target.value)} 
-              />
-            </div>
-          </div>
-
-          <div className="form-row" style={{ marginTop: '12px' }}>
-            <div className="form-group" style={{ flex: 2 }}>
-              <label>User Agent (Tùy chọn)</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                placeholder="Mozilla/5.0..." 
-                value={userAgent} 
-                onChange={(e) => setUserAgent(e.target.value)} 
-              />
-            </div>
-            <div className="form-group" style={{ flex: 1 }}>
-              <label>Liên kết Proxy</label>
-              <select 
-                className="form-control" 
-                value={proxyId} 
-                onChange={(e) => setProxyId(parseInt(e.target.value))}
-              >
-                <option value={-1}>-- Không dùng Proxy --</option>
-                {proxies.map(p => (
-                  <option key={p.id} value={p.id}>
-                    [{p.type || 'HTTP'}] {p.host}:{p.port} ({p.country || '?'})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <button type="submit" className="btn-primary" style={{ marginTop: '16px', width: 'auto', padding: '10px 24px' }}>
-            Xác nhận tạo Profile
-          </button>
-        </form>
-      )}
-
-      {/* 4. Edit Modal */}
-      {editingProfile && (
-        <div className="run-modal-backdrop">
-          <div className="run-modal-container" style={{ maxWidth: '500px' }}>
-            <div className="run-modal-header">
-              <h3>
-                <Pencil size={18} />
-                <span>Chỉnh sửa Chrome Profile</span>
-              </h3>
-              <button className="run-modal-close-btn" onClick={() => setEditingProfile(null)}>✕</button>
-            </div>
-            <form onSubmit={handleUpdateProfileSubmit}>
-              <div className="run-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div className="form-group">
-                  <label>Tên Profile *</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    value={editName} 
-                    onChange={(e) => setEditName(e.target.value)} 
-                    required 
-                  />
-                </div>
-                <div className="form-group">
-                  <label>User Agent</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    value={editUserAgent} 
-                    onChange={(e) => setEditUserAgent(e.target.value)} 
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Proxy liên kết</label>
-                  <select 
-                    className="form-control" 
-                    value={editProxyId} 
-                    onChange={(e) => setEditProxyId(parseInt(e.target.value))}
-                  >
-                    <option value={-1}>-- Không dùng Proxy --</option>
-                    {proxies.map(p => (
-                      <option key={p.id} value={p.id}>
-                        [{p.type || 'HTTP'}] {p.host}:{p.port} ({p.country || '?'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="run-modal-footer">
-                <button type="button" className="btn-secondary" onClick={() => setEditingProfile(null)}>Hủy bỏ</button>
-                <button type="submit" className="btn-primary" style={{ width: 'auto', padding: '10px 20px' }}>Lưu thay đổi</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Toolbar Filters */}
+      {/* 3. Toolbar Filters */}
       <div className="filter-toolbar" style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
         <Search size={16} style={{ color: 'var(--text-secondary)' }} />
         <input 
@@ -401,98 +363,169 @@ const ProfileManager: React.FC = () => {
         />
 
         {selectedProfileIds.length > 0 && (
-          <button type="button" className="btn-danger" onClick={handleDeleteMultiple} style={{ width: 'auto', padding: '6px 14px', margin: 0, fontSize: '0.8rem', marginLeft: 'auto' }}>
+          <button 
+            type="button" 
+            className="btn-danger" 
+            onClick={() => setIsDeleteManyOpen(true)} 
+            style={{ width: 'auto', padding: '6px 14px', margin: 0, fontSize: '0.8rem', marginLeft: 'auto' }}
+          >
             <Trash2 size={12} />
             <span>Xóa {selectedProfileIds.length} mục đã chọn</span>
           </button>
         )}
       </div>
 
-      {/* 6. Profiles Table Grid */}
-      <div className="flat-table-wrapper" style={{ flex: 1, border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
-        <table className="flat-table">
-          <thead>
-            <tr>
-              <th style={{ width: '40px', textAlign: 'center' }}>
-                <input 
-                  type="checkbox" 
-                  checked={filteredProfiles.length > 0 && filteredProfiles.every(p => selectedProfileIds.includes(p.id))}
-                  onChange={handleSelectAll}
-                  style={{ cursor: 'pointer', accentColor: 'var(--color-accent)' }}
-                />
-              </th>
-              <th>Tên Chrome Profile</th>
-              <th>Thư mục (Folder Name)</th>
-              <th>User Agent</th>
-              <th>Proxy Liên Kết</th>
-              <th style={{ width: '120px', textAlign: 'center' }}>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                  Đang tải danh sách Chrome Profiles...
-                </td>
-              </tr>
-            ) : filteredProfiles.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                  Không tìm thấy Chrome Profile nào.
-                </td>
-              </tr>
-            ) : (
-              filteredProfiles.map(p => {
-                const isChecked = selectedProfileIds.includes(p.id);
-                return (
-                  <tr key={p.id} className={isChecked ? 'row-selected' : ''} style={{ backgroundColor: isChecked ? 'var(--color-accent-light)' : 'transparent' }}>
-                    <td style={{ textAlign: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={isChecked}
-                        onChange={() => handleSelectProfile(p.id)}
-                        style={{ cursor: 'pointer', accentColor: 'var(--color-accent)' }}
-                      />
-                    </td>
-                    <td className="bold-cell">{p.name}</td>
-                    <td><code className="flat-code">{p.folderName}</code></td>
-                    <td className="truncate-cell" title={p.userAgent || 'Mặc định'}>{p.userAgent || 'Trình duyệt hệ thống'}</td>
-                    <td>
-                      {p.proxyDetail ? (
-                        <span className="profile-badge badge-proxy">
-                          [{p.proxyDetail.type}] {p.proxyDetail.host}:{p.proxyDetail.port}
-                        </span>
-                      ) : (
-                        <span className="muted" style={{ fontStyle: 'italic', fontSize: '0.8rem' }}>Không liên kết</span>
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                        <button 
-                          className="btn-action" 
-                          title="Sửa thông tin" 
-                          onClick={() => handleOpenEditModal(p)}
-                          style={{ color: 'var(--color-accent)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button 
-                          className="btn-action" 
-                          title="Xóa profile" 
-                          onClick={() => handleDeleteProfile(p.id)}
-                          style={{ color: 'var(--color-error)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* 4. Resizable scrollable Table */}
+      <UnifiedTable
+        columns={columns}
+        data={filteredProfiles}
+        renderRow={renderRow}
+        loading={loading}
+        emptyText="Không tìm thấy Chrome Profile nào."
+        maxHeight="calc(100vh - 280px)"
+      />
+
+      {/* 5. Add Profile Dialog */}
+      <CustomDialog
+        isOpen={isAddOpen}
+        title="Tạo Chrome Profile mới"
+        type="form"
+        onClose={() => setIsAddOpen(false)}
+        onConfirm={handleCreateProfile}
+        confirmText="Xác nhận tạo"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div className="form-group">
+            <label>Tên Profile *</label>
+            <input 
+              type="text" 
+              className="form-control" 
+              placeholder="Ví dụ: Account Facebook 01" 
+              value={name} 
+              onChange={(e) => setName(e.target.value)} 
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <label>Tên thư mục (Folder Name)</label>
+            <input 
+              type="text" 
+              className="form-control" 
+              placeholder="Để trống để tự tạo..." 
+              value={folderName} 
+              onChange={(e) => setFolderName(e.target.value)} 
+            />
+          </div>
+          <div className="form-group">
+            <label>User Agent (Tùy chọn)</label>
+            <input 
+              type="text" 
+              className="form-control" 
+              placeholder="Mozilla/5.0..." 
+              value={userAgent} 
+              onChange={(e) => setUserAgent(e.target.value)} 
+            />
+          </div>
+          <div className="form-group">
+            <label>Liên kết Proxy</label>
+            <CustomSelect
+              value={proxyId}
+              onChange={(val) => setProxyId(parseInt(val))}
+              options={[
+                { value: -1, label: '-- Không dùng Proxy --' },
+                ...proxies.map(p => ({
+                  value: p.id,
+                  label: `[${p.type || 'HTTP'}] ${p.host}:${p.port} (${p.country || '?'})`
+                }))
+              ]}
+            />
+          </div>
+        </div>
+      </CustomDialog>
+
+      {/* 6. Edit Profile Dialog */}
+      <CustomDialog
+        isOpen={!!editingProfile}
+        title="Chỉnh sửa Chrome Profile"
+        type="form"
+        onClose={() => setEditingProfile(null)}
+        onConfirm={handleUpdateProfileSubmit}
+        confirmText="Lưu thay đổi"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="form-group">
+            <label>Tên Profile *</label>
+            <input 
+              type="text" 
+              className="form-control" 
+              value={editName} 
+              onChange={(e) => setEditName(e.target.value)} 
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <label>User Agent</label>
+            <input 
+              type="text" 
+              className="form-control" 
+              value={editUserAgent} 
+              onChange={(e) => setEditUserAgent(e.target.value)} 
+            />
+          </div>
+          <div className="form-group">
+            <label>Proxy liên kết</label>
+            <CustomSelect
+              value={editProxyId}
+              onChange={(val) => setEditProxyId(parseInt(val))}
+              options={[
+                { value: -1, label: '-- Không dùng Proxy --' },
+                ...proxies.map(p => ({
+                  value: p.id,
+                  label: `[${p.type || 'HTTP'}] ${p.host}:${p.port} (${p.country || '?'})`
+                }))
+              ]}
+            />
+          </div>
+        </div>
+      </CustomDialog>
+
+      {/* 7. Delete Profile Confirmation Dialog */}
+      {deletingProfile && (
+        <CustomDialog
+          isOpen={!!deletingProfile}
+          title="Xác nhận xóa Chrome Profile"
+          type="danger"
+          onClose={() => setDeletingProfile(null)}
+          onConfirm={handleDeleteProfileSubmit}
+          confirmText="Xác nhận xóa"
+          cancelText="Hủy bỏ"
+        >
+          <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+            Bạn có chắc chắn muốn xóa Chrome Profile <strong>{deletingProfile.name}</strong> (thư mục: <code>{deletingProfile.folderName}</code>)?
+            <div style={{ color: 'var(--color-error)', fontWeight: 650, marginTop: '8px', fontSize: '0.8rem' }}>
+              ⚠️ Lưu ý: Thao tác này sẽ xóa hồ sơ lưu trữ trình duyệt khỏi cơ sở dữ liệu.
+            </div>
+          </div>
+        </CustomDialog>
+      )}
+
+      {/* 8. Bulk Delete Profile Confirmation Dialog */}
+      <CustomDialog
+        isOpen={isDeleteManyOpen}
+        title="Xác nhận xóa nhiều Chrome Profiles"
+        type="danger"
+        onClose={() => setIsDeleteManyOpen(false)}
+        onConfirm={handleDeleteMultipleSubmit}
+        confirmText="Xác nhận xóa tất cả"
+        cancelText="Hủy bỏ"
+      >
+        <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+          Bạn có chắc chắn muốn xóa <strong>{selectedProfileIds.length}</strong> profiles đã được chọn khỏi cơ sở dữ liệu?
+          <div style={{ color: 'var(--color-error)', fontWeight: 650, marginTop: '8px', fontSize: '0.8rem' }}>
+            ⚠️ Thao tác này sẽ xóa sạch cấu hình của tất cả các profiles đã chọn.
+          </div>
+        </div>
+      </CustomDialog>
     </div>
   );
 };

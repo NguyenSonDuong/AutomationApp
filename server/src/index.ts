@@ -59,6 +59,7 @@ import { ProjectController } from './adapters/controllers/ProjectController';
 import { ActionStepController } from './adapters/controllers/ActionStepController';
 
 import { createExpressApp } from './infrastructure/webserver/express';
+import { AutomationSocketController } from './adapters/controllers/AutomationSocketController';
 
 dotenv.config();
 
@@ -214,9 +215,14 @@ async function bootstrap() {
     });
 
     // 9. Socket.io Event Handling
+    const automationSocketController = new AutomationSocketController(io);
+
     io.on('connection', (socket) => {
       console.log(`[Socket] Client connected: ${socket.id}`);
-      
+
+      // Register automation flow events
+      automationSocketController.registerEvents(socket);
+
       socket.on('disconnect', () => {
         console.log(`[Socket] Client disconnected: ${socket.id}`);
       });

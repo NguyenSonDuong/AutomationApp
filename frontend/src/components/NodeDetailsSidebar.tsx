@@ -1,5 +1,6 @@
 import React from 'react';
 import { Settings, Trash2 } from 'lucide-react';
+import CustomSelect from './CustomSelect';
 
 interface NodeDetailsSidebarProps {
   selectedElement: any;
@@ -45,9 +46,7 @@ const NodeDetailsSidebar: React.FC<NodeDetailsSidebarProps> = ({
           <button 
             className="btn-danger" 
             onClick={() => {
-              if (window.confirm("Bạn có chắc muốn xóa nút chuyển hướng này?")) {
-                onDeleteElement(node.id, true);
-              }
+              onDeleteElement(node.id, true);
             }}
           >
             <Trash2 size={16} />
@@ -79,18 +78,18 @@ const NodeDetailsSidebar: React.FC<NodeDetailsSidebarProps> = ({
         {!['close_browser', 'switch_tab', 'close_tab'].includes(action_type) && (
           <div className="form-group">
             <label>Tab thực hiện</label>
-            <select 
-              className="form-control"
-              value={node.data.target_tab || 'current'} 
-              onChange={(e) => handleInputChange('target_tab', e.target.value)}
-            >
-              <option value="current">Tab hiện tại (current)</option>
-              <option value="new">Mở tab mới (new)</option>
-              <option value="tab_0">Tab 0</option>
-              <option value="tab_1">Tab 1</option>
-              <option value="tab_2">Tab 2</option>
-              <option value="tab_3">Tab 3</option>
-            </select>
+            <CustomSelect
+              value={node.data.target_tab || 'current'}
+              onChange={(val) => handleInputChange('target_tab', val)}
+              options={[
+                { value: 'current', label: 'Tab hiện tại (current)' },
+                { value: 'new', label: 'Mở tab mới (new)' },
+                { value: 'tab_0', label: 'Tab 0' },
+                { value: 'tab_1', label: 'Tab 1' },
+                { value: 'tab_2', label: 'Tab 2' },
+                { value: 'tab_3', label: 'Tab 3' },
+              ]}
+            />
           </div>
         )}
 
@@ -136,22 +135,22 @@ const NodeDetailsSidebar: React.FC<NodeDetailsSidebarProps> = ({
         {action_type === 'extract_data' && (
           <div className="form-group">
             <label>Thuộc tính cần trích xuất</label>
-            <select
-              className="form-control"
+            <CustomSelect
               value={node.data.extra_params?.attribute || 'text'}
-              onChange={(e) => {
-                const updatedExtra = { ...node.data.extra_params, attribute: e.target.value };
+              onChange={(val) => {
+                const updatedExtra = { ...node.data.extra_params, attribute: val };
                 handleInputChange('extra_params', updatedExtra);
               }}
-            >
-              <option value="text">Text của element (inner text)</option>
-              <option value="value">Value của element (input value/text)</option>
-              <option value="class">Thuộc tính class</option>
-              <option value="href">Thuộc tính href (URL liên kết)</option>
-              <option value="src">Thuộc tính src (Đường dẫn ảnh/file)</option>
-              <option value="placeholder">Thuộc tính placeholder</option>
-              <option value="custom">Thuộc tính tự do khác...</option>
-            </select>
+              options={[
+                { value: 'text', label: 'Text của element (inner text)' },
+                { value: 'value', label: 'Value của element (input value/text)' },
+                { value: 'class', label: 'Thuộc tính class' },
+                { value: 'href', label: 'Thuộc tính href (URL liên kết)' },
+                { value: 'src', label: 'Thuộc tính src (Đường dẫn ảnh/file)' },
+                { value: 'placeholder', label: 'Thuộc tính placeholder' },
+                { value: 'custom', label: 'Thuộc tính tự do khác...' },
+              ]}
+            />
             
             {(node.data.extra_params?.attribute === 'custom' || !['text', 'value', 'class', 'href', 'src', 'placeholder'].includes(node.data.extra_params?.attribute || 'text')) && (
               <div style={{ marginTop: '8px' }}>
@@ -174,24 +173,24 @@ const NodeDetailsSidebar: React.FC<NodeDetailsSidebarProps> = ({
         {action_type === 'switch_tab' && (
           <div className="form-group">
             <label>Tab cần chuyển tới</label>
-            <select
-              className="form-control"
-              value={['tab_0', 'tab_1', 'tab_2', 'tab_3'].includes(node.data.value) ? node.data.value : (node.data.value ? 'custom' : '')}
-              onChange={(e) => {
-                if (e.target.value === 'custom') {
+            <CustomSelect
+              value={['tab_0','tab_1','tab_2','tab_3'].includes(node.data.value) ? node.data.value : (node.data.value ? 'custom' : '')}
+              onChange={(val) => {
+                if (val === 'custom') {
                   handleInputChange('value', '');
                 } else {
-                  handleInputChange('value', e.target.value);
+                  handleInputChange('value', val);
                 }
               }}
-            >
-              <option value="">-- Chọn tab --</option>
-              <option value="tab_0">Tab 0</option>
-              <option value="tab_1">Tab 1</option>
-              <option value="tab_2">Tab 2</option>
-              <option value="tab_3">Tab 3</option>
-              <option value="custom">Nhập biến / chỉ số tự do...</option>
-            </select>
+              options={[
+                { value: '', label: '-- Chọn tab --' },
+                { value: 'tab_0', label: 'Tab 0' },
+                { value: 'tab_1', label: 'Tab 1' },
+                { value: 'tab_2', label: 'Tab 2' },
+                { value: 'tab_3', label: 'Tab 3' },
+                { value: 'custom', label: 'Nhập biến / chỉ số tự do...' },
+              ]}
+            />
             
             {(node.data.value !== undefined && node.data.value !== null && node.data.value !== '' && !['tab_0', 'tab_1', 'tab_2', 'tab_3'].includes(node.data.value)) && (
               <div style={{ marginTop: '8px' }}>
@@ -223,26 +222,26 @@ const NodeDetailsSidebar: React.FC<NodeDetailsSidebarProps> = ({
         {action_type === 'close_tab' && (
           <div className="form-group">
             <label>Tab cần đóng</label>
-            <select
-              className="form-control"
-              value={node.data.value === undefined || node.data.value === null || node.data.value === '' ? 'current' : (['tab_0', 'tab_1', 'tab_2', 'tab_3'].includes(node.data.value) ? node.data.value : 'custom')}
-              onChange={(e) => {
-                if (e.target.value === 'current') {
+            <CustomSelect
+              value={node.data.value === undefined || node.data.value === null || node.data.value === '' ? 'current' : (['tab_0','tab_1','tab_2','tab_3'].includes(node.data.value) ? node.data.value : 'custom')}
+              onChange={(val) => {
+                if (val === 'current') {
                   handleInputChange('value', '');
-                } else if (e.target.value === 'custom') {
+                } else if (val === 'custom') {
                   handleInputChange('value', '');
                 } else {
-                  handleInputChange('value', e.target.value);
+                  handleInputChange('value', val);
                 }
               }}
-            >
-              <option value="current">Tab hiện tại (current)</option>
-              <option value="tab_0">Tab 0</option>
-              <option value="tab_1">Tab 1</option>
-              <option value="tab_2">Tab 2</option>
-              <option value="tab_3">Tab 3</option>
-              <option value="custom">Nhập biến tự do...</option>
-            </select>
+              options={[
+                { value: 'current', label: 'Tab hiện tại (current)' },
+                { value: 'tab_0', label: 'Tab 0' },
+                { value: 'tab_1', label: 'Tab 1' },
+                { value: 'tab_2', label: 'Tab 2' },
+                { value: 'tab_3', label: 'Tab 3' },
+                { value: 'custom', label: 'Nhập biến tự do...' },
+              ]}
+            />
             
             {node.data.value !== '' && node.data.value !== undefined && node.data.value !== null && (!['tab_0', 'tab_1', 'tab_2', 'tab_3'].includes(node.data.value)) && (
               <div style={{ marginTop: '8px' }}>
@@ -300,19 +299,19 @@ const NodeDetailsSidebar: React.FC<NodeDetailsSidebarProps> = ({
         {action_type === 'fill_text' && node.data.is_random && (
           <div className="form-group">
             <label>Loại ngẫu nhiên</label>
-            <select
-              className="form-control"
+            <CustomSelect
               value={node.data.random_type || 'text'}
-              onChange={(e) => handleInputChange('random_type', e.target.value)}
-            >
-              <option value="text">Chữ (Text)</option>
-              <option value="number">Số (Number)</option>
-              <option value="date">Ngày tháng (Date)</option>
-              <option value="name">Tên (Name)</option>
-              <option value="firstname">Tên gọi (First Name)</option>
-              <option value="lastname">Họ (Last Name)</option>
-              <option value="email">Email</option>
-            </select>
+              onChange={(val) => handleInputChange('random_type', val)}
+              options={[
+                { value: 'text', label: 'Chữ (Text)' },
+                { value: 'number', label: 'Số (Number)' },
+                { value: 'date', label: 'Ngày tháng (Date)' },
+                { value: 'name', label: 'Tên (Name)' },
+                { value: 'firstname', label: 'Tên gọi (First Name)' },
+                { value: 'lastname', label: 'Họ (Last Name)' },
+                { value: 'email', label: 'Email' },
+              ]}
+            />
           </div>
         )}
 
@@ -398,9 +397,7 @@ const NodeDetailsSidebar: React.FC<NodeDetailsSidebarProps> = ({
         <button 
           className="btn-danger" 
           onClick={() => {
-            if (window.confirm("Bạn có chắc muốn xóa nút hành động này?")) {
-              onDeleteElement(node.id, true);
-            }
+            onDeleteElement(node.id, true);
           }}
         >
           <Trash2 size={16} />
@@ -477,14 +474,14 @@ const NodeDetailsSidebar: React.FC<NodeDetailsSidebarProps> = ({
       <div className="details-body" style={{ gap: '15px' }}>
         <div className="form-group">
           <label>Toán tử logic liên kết</label>
-          <select 
-            className="form-control"
+          <CustomSelect
             value={condObj.logical_operator}
-            onChange={(e) => handleLogicalOperatorChange(e.target.value)}
-          >
-            <option value="AND">VÀ (Tất cả điều kiện phải khớp)</option>
-            <option value="OR">HOẶC (Chỉ cần 1 điều kiện khớp)</option>
-          </select>
+            onChange={(val) => handleLogicalOperatorChange(val)}
+            options={[
+              { value: 'AND', label: 'VÀ (Tất cả điều kiện phải khớp)' },
+              { value: 'OR', label: 'HOẶC (Chỉ cần 1 điều kiện khớp)' },
+            ]}
+          />
         </div>
 
         <div className="form-group">
@@ -561,18 +558,17 @@ const NodeDetailsSidebar: React.FC<NodeDetailsSidebarProps> = ({
 
                     <div className="form-group" style={{ gap: '3px' }}>
                       <label style={{ fontSize: '0.7rem' }}>Thuộc tính cần kiểm tra</label>
-                      <select
-                        className="form-control"
-                        style={{ padding: '4px 8px', fontSize: '0.8rem', height: 'auto' }}
+                      <CustomSelect
                         value={rule.attribute}
-                        onChange={(e) => handleRuleChange(index, 'attribute', e.target.value)}
-                      >
-                        <option value="text">Text của element (inner text)</option>
-                        <option value="value">Value của element (input value)</option>
-                        <option value="url">Đường dẫn trang (URL)</option>
-                        <option value="content">HTML toàn trang (content)</option>
-                        <option value="custom">Thuộc tính tùy do (custom attribute)...</option>
-                      </select>
+                        onChange={(val) => handleRuleChange(index, 'attribute', val)}
+                        options={[
+                          { value: 'text', label: 'Text của element (inner text)' },
+                          { value: 'value', label: 'Value của element (input value)' },
+                          { value: 'url', label: 'Đường dẫn trang (URL)' },
+                          { value: 'content', label: 'HTML toàn trang (content)' },
+                          { value: 'custom', label: 'Thuộc tính tùy do (custom attribute)...' },
+                        ]}
+                      />
                     </div>
 
                     {isCustomAttr && (
@@ -605,19 +601,18 @@ const NodeDetailsSidebar: React.FC<NodeDetailsSidebarProps> = ({
 
                     <div className="form-group" style={{ gap: '3px' }}>
                       <label style={{ fontSize: '0.7rem' }}>Phép toán so sánh</label>
-                      <select
-                        className="form-control"
-                        style={{ padding: '4px 8px', fontSize: '0.8rem', height: 'auto' }}
+                      <CustomSelect
                         value={rule.comparison}
-                        onChange={(e) => handleRuleChange(index, 'comparison', e.target.value)}
-                      >
-                        <option value="eq">Giống (Bằng)</option>
-                        <option value="neq">Không giống (Khác)</option>
-                        <option value="contains">Chứa</option>
-                        <option value="not_contains">Không chứa</option>
-                        <option value="gt">Lớn hơn (&gt;)</option>
-                        <option value="lt">Nhỏ hơn (&lt;)</option>
-                      </select>
+                        onChange={(val) => handleRuleChange(index, 'comparison', val)}
+                        options={[
+                          { value: 'eq', label: 'Giống (Bằng)' },
+                          { value: 'neq', label: 'Không giống (Khác)' },
+                          { value: 'contains', label: 'Chứa' },
+                          { value: 'not_contains', label: 'Không chứa' },
+                          { value: 'gt', label: 'Lớn hơn (>)' },
+                          { value: 'lt', label: 'Nhỏ hơn (<)' },
+                        ]}
+                      />
                     </div>
 
                     <div className="form-group" style={{ gap: '3px' }}>
@@ -679,9 +674,7 @@ const NodeDetailsSidebar: React.FC<NodeDetailsSidebarProps> = ({
         <button 
           className="btn-danger" 
           onClick={() => {
-            if (window.confirm("Bạn có chắc muốn xóa đường nối liên kết này?")) {
-              onDeleteElement(edge.id, false);
-            }
+            onDeleteElement(edge.id, false);
           }}
         >
           <Trash2 size={16} />

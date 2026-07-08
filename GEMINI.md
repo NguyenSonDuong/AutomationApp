@@ -64,6 +64,7 @@ Sơ đồ phân tầng từ trong ra ngoài:
 *   **CSS**: Sử dụng **Vanilla CSS** thuần túy phối hợp với các biến CSS `:root` để thiết lập Design System đồng nhất. Tạo các hiệu ứng phát sáng mượt mà (`glow-node-active`, `glow-node-success`, `glow-node-failed`) phục vụ cho các trạng thái hoạt động thực tế.
 *   **Trực quan hóa kịch bản**: Sử dụng thư viện **React Flow** để thiết kế sơ đồ kéo thả kịch bản tự động hóa trực quan (phần tử node tùy biến, đường kết nối vuông góc, nút chuyển hướng waypoint).
 *   **Tương tác thực tế**: Giao tiếp qua HTTP API (Port 3000) để lấy dữ liệu tĩnh ban đầu và kết nối Socket.io để cập nhật real-time trạng thái chạy đa luồng lập tức mà không cần reload.
+*   **Quy tắc Modal Dialog**: Tất cả các hành động Thêm (Add), Sửa (Edit), và Xóa (Delete) từ phía người dùng đều phải mở một Modal Dialog (Hộp thoại dạng Modal) để xử lý hoặc xác nhận Có/Không. Tuyệt đối không dùng các hàm hộp thoại mặc định của trình duyệt như window.confirm hoặc window.prompt.
 
 ---
 

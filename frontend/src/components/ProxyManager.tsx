@@ -4,6 +4,9 @@ import {
   Globe, Trash2, CheckCircle2, XCircle, AlertCircle, 
   RefreshCw, Plus, Upload, Search, Filter, UserCheck, Pencil
 } from 'lucide-react';
+import CustomDialog from './CustomDialog';
+import UnifiedTable, { type Column } from './UnifiedTable';
+import CustomSelect from './CustomSelect';
 
 const BASE_URL = 'http://localhost:3000/api';
 
@@ -25,8 +28,12 @@ const ProxyManager: React.FC = () => {
   const [assigningProxy, setAssigningProxy] = useState<any>(null);
   const [selectedProfilesForProxy, setSelectedProfilesForProxy] = useState<number[]>([]);
   
-  // Edit Proxy Form State
+  // Dialog visibility states
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingProxy, setEditingProxy] = useState<any>(null);
+
+  // Edit Proxy Form State
   const [editType, setEditType] = useState('HTTP');
   const [editHost, setEditHost] = useState('');
   const [editPort, setEditPort] = useState(8080);
@@ -34,10 +41,10 @@ const ProxyManager: React.FC = () => {
   const [editPassword, setEditPassword] = useState('');
   const [editCountry, setEditCountry] = useState('');
 
-  // Form states
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [showImportForm, setShowImportForm] = useState(false);
-  
+  // Delete Dialog States
+  const [deletingProxy, setDeletingProxy] = useState<any>(null);
+  const [isDeleteManyOpen, setIsDeleteManyOpen] = useState(false);
+
   // Single Proxy Form
   const [proxyType, setProxyType] = useState('HTTP');
   const [host, setHost] = useState('');
@@ -58,7 +65,6 @@ const ProxyManager: React.FC = () => {
     fetchProxies();
     fetchProfiles();
 
-    // Listen to socket checks
     const socket = io('http://localhost:3000');
 
     socket.on('proxy_checked', (data: any) => {
@@ -142,6 +148,22 @@ const ProxyManager: React.FC = () => {
     }
   };
 
+  const handleOpenAdd = () => {
+    setHost('');
+    setPort(8080);
+    setUsername('');
+    setPassword('');
+    setProxyType('HTTP');
+    setCountry('Vietnam');
+    setIsAddOpen(true);
+  };
+
+  const handleOpenImport = () => {
+    setBulkText('');
+    setImportResult(null);
+    setIsImportOpen(true);
+  };
+
   const handleOpenEditModal = (proxy: any) => {
     setEditingProxy(proxy);
     setEditType(proxy.type || 'HTTP');
@@ -152,8 +174,7 @@ const ProxyManager: React.FC = () => {
     setEditCountry(proxy.country || '');
   };
 
-  const handleUpdateProxySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUpdateProxySubmit = async () => {
     if (!editingProxy || !editHost || !editPort) return;
 
     try {
@@ -187,8 +208,7 @@ const ProxyManager: React.FC = () => {
     }
   };
 
-  const handleCreateProxy = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateProxy = async () => {
     if (!host || !port) return;
 
     try {
@@ -208,13 +228,7 @@ const ProxyManager: React.FC = () => {
       if (res.ok) {
         const newProxy = await res.json();
         setProxies([newProxy, ...proxies]);
-        setHost('');
-        setPort(8080);
-        setUsername('');
-        setPassword('');
-        setProxyType('HTTP');
-        setCountry('Vietnam');
-        setShowAddForm(false);
+        setIsAddOpen(false);
       } else {
         const err = await res.json();
         alert(err.error || "Tạo proxy thất bại");
@@ -224,8 +238,7 @@ const ProxyManager: React.FC = () => {
     }
   };
 
-  const handleImportProxies = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleImportProxies = async () => {
     if (!bulkText.trim()) return;
 
     try {
@@ -239,8 +252,10 @@ const ProxyManager: React.FC = () => {
         const data = await res.json();
         setImportResult(data);
         fetchProxies();
-        setBulkText('');
-        setTimeout(() => setImportResult(null), 5000);
+        setTimeout(() => {
+          setIsImportOpen(false);
+          setImportResult(null);
+        }, 1500);
       } else {
         const err = await res.json();
         alert(err.error || "Nhập proxy thất bại");
@@ -261,16 +276,17 @@ const ProxyManager: React.FC = () => {
     reader.readAsText(file);
   };
 
-  const handleDeleteProxy = async (id: number) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa proxy này?")) return;
+  const handleDeleteProxySubmit = async () => {
+    if (!deletingProxy) return;
 
     try {
-      const res = await fetch(`${BASE_URL}/proxies/${id}`, {
+      const res = await fetch(`${BASE_URL}/proxies/${deletingProxy.id}`, {
         method: 'DELETE'
       });
       if (res.ok) {
-        setProxies(proxies.filter(p => p.id !== id));
-        setSelectedProxyIds(selectedProxyIds.filter(x => x !== id));
+        setProxies(proxies.filter(p => p.id !== deletingProxy.id));
+        setSelectedProxyIds(selectedProxyIds.filter(x => x !== deletingProxy.id));
+        setDeletingProxy(null);
       }
     } catch (e) {
       console.error("Xóa proxy thất bại", e);
@@ -296,9 +312,8 @@ const ProxyManager: React.FC = () => {
     }
   };
 
-  const handleDeleteMultiple = async () => {
+  const handleDeleteMultipleSubmit = async () => {
     if (selectedProxyIds.length === 0) return;
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${selectedProxyIds.length} proxy đã chọn?`)) return;
 
     try {
       const res = await fetch(`${BASE_URL}/proxies`, {
@@ -309,6 +324,7 @@ const ProxyManager: React.FC = () => {
       if (res.ok) {
         setProxies(proxies.filter(p => !selectedProxyIds.includes(p.id)));
         setSelectedProxyIds([]);
+        setIsDeleteManyOpen(false);
       } else {
         alert("Xóa hàng loạt proxy thất bại!");
       }
@@ -385,6 +401,110 @@ const ProxyManager: React.FC = () => {
     return true;
   });
 
+  const columns: Column[] = [
+    { 
+      key: 'select', 
+      label: (
+        <input 
+          type="checkbox" 
+          checked={filteredProxies.length > 0 && filteredProxies.every(p => selectedProxyIds.includes(p.id))}
+          onChange={handleSelectAll}
+          style={{ cursor: 'pointer', accentColor: 'var(--color-accent)' }}
+        />
+      ), 
+      initialWidth: 50, 
+      minWidth: 40 
+    },
+    { key: 'host', label: 'Host (IP Address)', initialWidth: 180, minWidth: 100 },
+    { key: 'port', label: 'Cổng', initialWidth: 80, minWidth: 50 },
+    { key: 'type', label: 'Loại', initialWidth: 90, minWidth: 60 },
+    { key: 'credentials', label: 'Tài khoản / Mật khẩu', initialWidth: 160, minWidth: 100 },
+    { key: 'country', label: 'Quốc Gia', initialWidth: 110, minWidth: 60 },
+    { key: 'ping', label: 'Ping (ms)', initialWidth: 80, minWidth: 50 },
+    { key: 'status', label: 'Trạng Thái', initialWidth: 120, minWidth: 80 },
+    { key: 'actions', label: 'Thao tác', initialWidth: 160, minWidth: 120 }
+  ];
+
+  const renderRow = (p: any, _idx: number, _widths: number[]) => {
+    const isChecked = selectedProxyIds.includes(p.id);
+    return (
+      <tr key={p.id} className={isChecked ? 'row-selected' : ''}>
+        <td>
+          <input 
+            type="checkbox" 
+            checked={isChecked}
+            onChange={() => handleSelectProxy(p.id)}
+            style={{ cursor: 'pointer', accentColor: 'var(--color-accent)' }}
+          />
+        </td>
+        <td className="bold-cell" style={{ fontWeight: 700 }}>{p.host}</td>
+        <td>{p.port}</td>
+        <td>
+          <span className="tag-type" style={{ padding: '2px 6px', fontSize: '0.75rem', borderRadius: '4px', background: 'var(--bg-secondary)', fontWeight: 'bold' }}>
+            {p.type}
+          </span>
+        </td>
+        <td>
+          {p.username ? (
+            <code style={{ fontSize: '0.8rem' }}>{p.username}:{p.password ? '******' : ''}</code>
+          ) : (
+            <span className="muted" style={{ fontStyle: 'italic', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Trống</span>
+          )}
+        </td>
+        <td>{p.country || 'Unknown'}</td>
+        <td>{p.pingSpeed ? `${p.pingSpeed}ms` : '-'}</td>
+        <td>
+          <span className={`flat-badge ${p.status === 'alive' ? 'success' : (p.status === 'dead' ? 'danger' : 'unknown')}`} style={{
+            padding: '3px 8px',
+            borderRadius: '4px',
+            fontSize: '0.75rem',
+            fontWeight: 'bold',
+            backgroundColor: p.status === 'alive' ? '#dcfce7' : (p.status === 'dead' ? '#fee2e2' : '#f1f5f9'),
+            color: p.status === 'alive' ? 'var(--color-success)' : (p.status === 'dead' ? 'var(--color-error)' : 'var(--text-secondary)')
+          }}>
+            {p.status === 'checking' ? 'Testing...' : p.status.toUpperCase()}
+          </span>
+        </td>
+        <td>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button 
+              className="btn-action" 
+              title="Gán cho profiles" 
+              onClick={() => handleOpenAssignModal(p)}
+              style={{ color: 'var(--color-accent-hover)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              <UserCheck size={16} />
+            </button>
+            <button 
+              className="btn-action" 
+              title="Kiểm tra ping" 
+              onClick={() => handleCheckProxy(p.id)}
+              style={{ color: 'var(--color-success)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              <RefreshCw size={16} className={p.status === 'checking' ? 'spin-icon' : ''} />
+            </button>
+            <button 
+              className="btn-action" 
+              title="Sửa thông tin" 
+              onClick={() => handleOpenEditModal(p)}
+              style={{ color: 'var(--color-accent)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              <Pencil size={16} />
+            </button>
+            <button 
+              className="btn-action" 
+              title="Xóa proxy" 
+              onClick={() => setDeletingProxy(p)}
+              style={{ color: 'var(--color-error)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <div className="proxy-manager-container" style={{
       display: 'flex',
@@ -393,7 +513,7 @@ const ProxyManager: React.FC = () => {
       height: '100%',
       padding: '24px',
       backgroundColor: 'var(--bg-primary)',
-      overflowY: 'auto'
+      overflow: 'hidden'
     }}>
       {/* 1. Header & Quick Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -421,7 +541,7 @@ const ProxyManager: React.FC = () => {
           <button 
             type="button" 
             className="btn-primary" 
-            onClick={() => { setShowAddForm(!showAddForm); setShowImportForm(false); }}
+            onClick={handleOpenAdd}
             style={{ width: 'auto', padding: '10px 16px' }}
           >
             <Plus size={14} />
@@ -430,7 +550,7 @@ const ProxyManager: React.FC = () => {
           <button 
             type="button" 
             className="btn-primary" 
-            onClick={() => { setShowImportForm(!showImportForm); setShowAddForm(false); }}
+            onClick={handleOpenImport}
             style={{ width: 'auto', padding: '10px 16px', backgroundColor: 'var(--color-success)' }}
           >
             <Upload size={14} />
@@ -482,20 +602,78 @@ const ProxyManager: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Dropdown Forms (Add / Bulk Import) */}
-      {showAddForm && (
-        <form onSubmit={handleCreateProxy} className="add-profile-form" style={{ marginBottom: '24px' }}>
-          <h4>Thêm Mới Proxy Thủ Công</h4>
+      {/* 3. Filter Toolbar */}
+      <div className="filter-toolbar" style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+        <Search size={16} style={{ color: 'var(--text-secondary)' }} />
+        <input 
+          type="text" 
+          placeholder="Tìm nhanh host, quốc gia..." 
+          className="form-control" 
+          style={{ width: '250px', padding: '6px 12px', fontSize: '0.85rem' }} 
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+        />
+        
+        <Filter size={16} style={{ color: 'var(--text-secondary)', marginLeft: '12px' }} />
+        <CustomSelect
+          style={{ width: '160px' }}
+          value={statusFilter}
+          onChange={(val) => setStatusFilter(val)}
+          options={[
+            { value: 'all', label: 'Tất cả trạng thái' },
+            { value: 'alive', label: 'Alive' },
+            { value: 'dead', label: 'Dead' },
+            { value: 'unknown', label: 'Chưa kiểm tra' },
+          ]}
+        />
+
+        {selectedProxyIds.length > 0 && (
+          <button 
+            type="button" 
+            className="btn-danger" 
+            onClick={() => setIsDeleteManyOpen(true)} 
+            style={{ width: 'auto', padding: '6px 14px', margin: 0, fontSize: '0.8rem' }}
+          >
+            <Trash2 size={12} />
+            <span>Xóa {selectedProxyIds.length} mục đã chọn</span>
+          </button>
+        )}
+      </div>
+
+      {/* 4. Resizable scrollable Table */}
+      <UnifiedTable
+        columns={columns}
+        data={filteredProxies}
+        renderRow={renderRow}
+        loading={loading}
+        emptyText="Không tìm thấy proxy nào phù hợp với bộ lọc."
+        maxHeight="calc(100vh - 280px)"
+      />
+
+      {/* 5. Add Proxy Dialog */}
+      <CustomDialog
+        isOpen={isAddOpen}
+        title="Thêm Mới Proxy Thủ Công"
+        type="form"
+        onClose={() => setIsAddOpen(false)}
+        onConfirm={handleCreateProxy}
+        confirmText="Xác nhận tạo"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div className="form-group">
+            <label>Loại Proxy *</label>
+            <CustomSelect
+              value={proxyType}
+              onChange={(val) => setProxyType(val)}
+              options={[
+                { value: 'HTTP', label: 'HTTP' },
+                { value: 'SOCKS5', label: 'SOCKS5' },
+                { value: 'SOCKS4', label: 'SOCKS4' },
+              ]}
+            />
+          </div>
           <div className="form-row">
-            <div className="form-group" style={{ flex: 1 }}>
-              <label>Loại Proxy *</label>
-              <select className="form-control" value={proxyType} onChange={(e) => setProxyType(e.target.value)}>
-                <option value="HTTP">HTTP</option>
-                <option value="SOCKS5">SOCKS5</option>
-                <option value="SOCKS4">SOCKS4</option>
-              </select>
-            </div>
-            <div className="form-group" style={{ flex: 2 }}>
+            <div className="form-group" style={{ flex: 3 }}>
               <label>Host / IP *</label>
               <input type="text" className="form-control" placeholder="e.g. 192.168.1.100" value={host} onChange={(e) => setHost(e.target.value)} required />
             </div>
@@ -504,8 +682,7 @@ const ProxyManager: React.FC = () => {
               <input type="number" className="form-control" value={port} onChange={(e) => setPort(parseInt(e.target.value) || 8080)} required />
             </div>
           </div>
-
-          <div className="form-row" style={{ marginTop: '12px' }}>
+          <div className="form-row">
             <div className="form-group">
               <label>Username (Tùy chọn)</label>
               <input type="text" className="form-control" value={username} onChange={(e) => setUsername(e.target.value)} />
@@ -514,27 +691,29 @@ const ProxyManager: React.FC = () => {
               <label>Password (Tùy chọn)</label>
               <input type="password" className="form-control" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
-            <div className="form-group">
-              <label>Quốc Gia</label>
-              <input type="text" className="form-control" value={country} onChange={(e) => setCountry(e.target.value)} />
-            </div>
           </div>
+          <div className="form-group">
+            <label>Quốc Gia</label>
+            <input type="text" className="form-control" value={country} onChange={(e) => setCountry(e.target.value)} />
+          </div>
+        </div>
+      </CustomDialog>
 
-          <button type="submit" className="btn-primary" style={{ marginTop: '16px', width: 'auto', padding: '10px 24px' }}>
-            Xác nhận tạo Proxy
-          </button>
-        </form>
-      )}
-
-      {showImportForm && (
-        <form onSubmit={handleImportProxies} className="add-profile-form" style={{ marginBottom: '24px' }}>
-          <h4>Nhập Danh Sách Proxy Số Lượng Lớn</h4>
+      {/* 6. Import Proxies Dialog */}
+      <CustomDialog
+        isOpen={isImportOpen}
+        title="Nhập Danh Sách Proxy Số Lượng Lớn"
+        type="form"
+        onClose={() => setIsImportOpen(false)}
+        onConfirm={handleImportProxies}
+        confirmText="Xác nhận Import"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {importResult && (
-            <div style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent-hover)', padding: '12px', borderRadius: '6px', fontSize: '0.85rem', marginBottom: '12px' }}>
+            <div style={{ backgroundColor: 'var(--color-accent-light)', color: 'var(--color-accent-hover)', padding: '12px', borderRadius: '6px', fontSize: '0.85rem' }}>
               🎉 Nhập thành công! Đã tạo thêm: <strong>{importResult.createdCount || 0}</strong>, trùng lặp: <strong>{importResult.duplicateCount || 0}</strong>
             </div>
           )}
-
           <div className="form-group">
             <label style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Dán danh sách Proxy (Mỗi proxy trên một dòng)</span>
@@ -553,266 +732,135 @@ const ProxyManager: React.FC = () => {
               style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
             />
           </div>
-
-          <button type="submit" className="btn-primary" style={{ marginTop: '16px', width: 'auto', padding: '10px 24px' }}>
-            Xác nhận Import
-          </button>
-        </form>
-      )}
-
-      {/* 4. Edit Proxy Modal */}
-      {editingProxy && (
-        <div className="run-modal-backdrop">
-          <div className="run-modal-container" style={{ maxWidth: '500px' }}>
-            <div className="run-modal-header">
-              <h3>
-                <Pencil size={18} />
-                <span>Chỉnh sửa thông tin Proxy</span>
-              </h3>
-              <button className="run-modal-close-btn" onClick={() => setEditingProxy(null)}>✕</button>
-            </div>
-            <form onSubmit={handleUpdateProxySubmit}>
-              <div className="run-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div className="form-group">
-                  <label>Giao thức</label>
-                  <select className="form-control" value={editType} onChange={(e) => setEditType(e.target.value)}>
-                    <option value="HTTP">HTTP</option>
-                    <option value="SOCKS5">SOCKS5</option>
-                    <option value="SOCKS4">SOCKS4</option>
-                  </select>
-                </div>
-                <div className="form-row">
-                  <div className="form-group" style={{ flex: 3 }}>
-                    <label>IP / Host</label>
-                    <input type="text" className="form-control" value={editHost} onChange={(e) => setEditHost(e.target.value)} required />
-                  </div>
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label>Port</label>
-                    <input type="number" className="form-control" value={editPort} onChange={(e) => setEditPort(parseInt(e.target.value) || 8080)} required />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Username</label>
-                    <input type="text" className="form-control" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} />
-                  </div>
-                  <div className="form-group">
-                    <label>Password</label>
-                    <input type="text" className="form-control" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Quốc Gia</label>
-                  <input type="text" className="form-control" value={editCountry} onChange={(e) => setEditCountry(e.target.value)} />
-                </div>
-              </div>
-              <div className="run-modal-footer">
-                <button type="button" className="btn-secondary" onClick={() => setEditingProxy(null)}>Hủy bỏ</button>
-                <button type="submit" className="btn-primary" style={{ width: 'auto', padding: '10px 20px' }}>Lưu thay đổi</button>
-              </div>
-            </form>
-          </div>
         </div>
-      )}
+      </CustomDialog>
 
-      {/* 5. Assign profiles Modal */}
-      {assigningProxy && (
-        <div className="run-modal-backdrop">
-          <div className="run-modal-container">
-            <div className="run-modal-header">
-              <h3>
-                <UserCheck size={18} />
-                <span>Gán Proxy [{assigningProxy.host}:{assigningProxy.port}] cho Profiles</span>
-              </h3>
-              <button className="run-modal-close-btn" onClick={() => setAssigningProxy(null)}>✕</button>
+      {/* 7. Edit Proxy Dialog */}
+      <CustomDialog
+        isOpen={!!editingProxy}
+        title="Chỉnh sửa thông tin Proxy"
+        type="form"
+        onClose={() => setEditingProxy(null)}
+        onConfirm={handleUpdateProxySubmit}
+        confirmText="Lưu thay đổi"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="form-group">
+            <label>Giao thức</label>
+            <CustomSelect
+              value={editType}
+              onChange={(val) => setEditType(val)}
+              options={[
+                { value: 'HTTP', label: 'HTTP' },
+                { value: 'SOCKS5', label: 'SOCKS5' },
+                { value: 'SOCKS4', label: 'SOCKS4' },
+              ]}
+            />
+          </div>
+          <div className="form-row">
+            <div className="form-group" style={{ flex: 3 }}>
+              <label>IP / Host</label>
+              <input type="text" className="form-control" value={editHost} onChange={(e) => setEditHost(e.target.value)} required />
             </div>
-            <div className="run-modal-body">
-              <div className="profiles-grid" style={{ maxHeight: '400px' }}>
-                {profiles.length === 0 ? (
-                  <div className="profiles-empty-state">Chưa có profile nào dưới DB. Hãy tạo ở hộp chạy thử nghiệm!</div>
-                ) : (
-                  profiles.map(p => {
-                    const isLinked = selectedProfilesForProxy.includes(p.id);
-                    return (
-                      <div 
-                        key={p.id} 
-                        className={`profile-card-item ${isLinked ? 'selected' : ''}`}
-                        onClick={() => {
-                          if (isLinked) {
-                            setSelectedProfilesForProxy(selectedProfilesForProxy.filter(x => x !== p.id));
-                          } else {
-                            setSelectedProfilesForProxy([...selectedProfilesForProxy, p.id]);
-                          }
-                        }}
-                      >
-                        <input type="checkbox" checked={isLinked} onChange={() => {}} style={{ pointerEvents: 'none' }} />
-                        <div>
-                          <div style={{ fontWeight: 700 }}>{p.name}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{p.folderName}</div>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-            <div className="run-modal-footer">
-              <button className="btn-secondary" onClick={() => setAssigningProxy(null)}>Hủy</button>
-              <button className="btn-primary" onClick={handleSaveProxyProfiles} style={{ width: 'auto', padding: '10px 20px' }}>Xác nhận Lưu</button>
+            <div className="form-group" style={{ flex: 1 }}>
+              <label>Port</label>
+              <input type="number" className="form-control" value={editPort} onChange={(e) => setEditPort(parseInt(e.target.value) || 8080)} required />
             </div>
           </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Username</label>
+              <input type="text" className="form-control" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>Password</label>
+              <input type="text" className="form-control" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} />
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Quốc Gia</label>
+            <input type="text" className="form-control" value={editCountry} onChange={(e) => setEditCountry(e.target.value)} />
+          </div>
         </div>
-      )}
+      </CustomDialog>
 
-      {/* 6. Filter Toolbar */}
-      <div className="filter-toolbar" style={{ display: 'flex', gap: '8px', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
-        <Search size={16} style={{ color: 'var(--text-secondary)' }} />
-        <input 
-          type="text" 
-          placeholder="Tìm nhanh host, quốc gia..." 
-          className="form-control" 
-          style={{ width: '250px', padding: '6px 12px', fontSize: '0.85rem' }} 
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-        />
-        
-        <Filter size={16} style={{ color: 'var(--text-secondary)', marginLeft: '12px' }} />
-        <select 
-          className="form-control" 
-          style={{ width: '150px', padding: '6px 12px', fontSize: '0.85rem', height: 'auto', cursor: 'pointer' }}
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
+      {/* 8. Assign profiles Dialog */}
+      <CustomDialog
+        isOpen={!!assigningProxy}
+        title={assigningProxy ? `Gán Proxy [${assigningProxy.host}:${assigningProxy.port}] cho Profiles` : 'Gán Proxy'}
+        type="form"
+        onClose={() => setAssigningProxy(null)}
+        onConfirm={handleSaveProxyProfiles}
+        confirmText="Xác nhận Lưu"
+      >
+        <div className="profiles-grid" style={{ maxHeight: '350px' }}>
+          {profiles.length === 0 ? (
+            <div className="profiles-empty-state">Chưa có profile nào dưới DB.</div>
+          ) : (
+            profiles.map(p => {
+              const isLinked = selectedProfilesForProxy.includes(p.id);
+              return (
+                <div 
+                  key={p.id} 
+                  className={`profile-card-item ${isLinked ? 'selected' : ''}`}
+                  onClick={() => {
+                    if (isLinked) {
+                      setSelectedProfilesForProxy(selectedProfilesForProxy.filter(x => x !== p.id));
+                    } else {
+                      setSelectedProfilesForProxy([...selectedProfilesForProxy, p.id]);
+                    }
+                  }}
+                  style={{ padding: '8px 12px', minHeight: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}
+                >
+                  <input type="checkbox" checked={isLinked} onChange={() => {}} style={{ pointerEvents: 'none' }} />
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.8rem' }}>{p.name}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{p.folderName}</div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </CustomDialog>
+
+      {/* 9. Single Delete Proxy Confirmation Dialog */}
+      {deletingProxy && (
+        <CustomDialog
+          isOpen={!!deletingProxy}
+          title="Xác nhận xóa Proxy"
+          type="danger"
+          onClose={() => setDeletingProxy(null)}
+          onConfirm={handleDeleteProxySubmit}
+          confirmText="Xác nhận xóa"
+          cancelText="Hủy bỏ"
         >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="alive">Alive</option>
-          <option value="dead">Dead</option>
-          <option value="unknown">Chưa kiểm tra</option>
-        </select>
+          <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+            Bạn có chắc chắn muốn xóa Proxy <strong>{deletingProxy.host}:{deletingProxy.port}</strong> khỏi cơ sở dữ liệu?
+            <div style={{ color: 'var(--color-error)', fontWeight: 650, marginTop: '8px', fontSize: '0.8rem' }}>
+              ⚠️ Lưu ý: Hành động này sẽ gỡ bỏ liên kết của proxy này với tất cả Chrome Profiles đang sử dụng nó.
+            </div>
+          </div>
+        </CustomDialog>
+      )}
 
-        {selectedProxyIds.length > 0 && (
-          <button type="button" className="btn-danger" onClick={handleDeleteMultiple} style={{ width: 'auto', padding: '6px 14px', margin: 0, fontSize: '0.8rem' }}>
-            <Trash2 size={12} />
-            <span>Xóa {selectedProxyIds.length} mục đã chọn</span>
-          </button>
-        )}
-      </div>
-
-      {/* 7. Data Grid Table */}
-      <div className="flat-table-wrapper" style={{ flex: 1, border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
-        <table className="flat-table">
-          <thead>
-            <tr>
-              <th style={{ width: '40px', textAlign: 'center' }}>
-                <input 
-                  type="checkbox" 
-                  checked={filteredProxies.length > 0 && filteredProxies.every(p => selectedProxyIds.includes(p.id))}
-                  onChange={handleSelectAll}
-                  style={{ cursor: 'pointer', accentColor: 'var(--color-accent)' }}
-                />
-              </th>
-              <th>Host (IP Address)</th>
-              <th>Cổng</th>
-              <th>Loại</th>
-              <th>Tài khoản / Mật khẩu</th>
-              <th>Quốc Gia</th>
-              <th>Ping (ms)</th>
-              <th>Trạng Thái</th>
-              <th style={{ width: '160px', textAlign: 'center' }}>Thao tác</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                  Đang tải danh sách proxy từ database...
-                </td>
-              </tr>
-            ) : filteredProxies.length === 0 ? (
-              <tr>
-                <td colSpan={9} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                  Không tìm thấy proxy nào phù hợp với bộ lọc.
-                </td>
-              </tr>
-            ) : (
-              filteredProxies.map(p => {
-                const isChecked = selectedProxyIds.includes(p.id);
-                return (
-                  <tr key={p.id} className={isChecked ? 'row-selected' : ''} style={{ backgroundColor: isChecked ? 'var(--color-accent-light)' : 'transparent' }}>
-                    <td style={{ textAlign: 'center' }}>
-                      <input 
-                        type="checkbox" 
-                        checked={isChecked}
-                        onChange={() => handleSelectProxy(p.id)}
-                        style={{ cursor: 'pointer', accentColor: 'var(--color-accent)' }}
-                      />
-                    </td>
-                    <td className="bold-cell">{p.host}</td>
-                    <td>{p.port}</td>
-                    <td><span className="tag-type" style={{ padding: '2px 6px', fontSize: '0.75rem', borderRadius: '4px', background: 'var(--bg-secondary)', fontWeight: 'bold' }}>{p.type}</span></td>
-                    <td>
-                      {p.username ? (
-                        <code style={{ fontSize: '0.8rem' }}>{p.username}:{p.password ? '******' : ''}</code>
-                      ) : (
-                        <span className="muted" style={{ fontStyle: 'italic', fontSize: '0.8rem' }}>Trống</span>
-                      )}
-                    </td>
-                    <td>{p.country || 'Unknown'}</td>
-                    <td>{p.pingSpeed ? `${p.pingSpeed}ms` : '-'}</td>
-                    <td>
-                      <span className={`flat-badge ${p.status === 'alive' ? 'success' : (p.status === 'dead' ? 'danger' : 'unknown')}`} style={{
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: 'bold',
-                        backgroundColor: p.status === 'alive' ? '#dcfce7' : (p.status === 'dead' ? '#fee2e2' : '#f1f5f9'),
-                        color: p.status === 'alive' ? 'var(--color-success)' : (p.status === 'dead' ? 'var(--color-error)' : 'var(--text-secondary)')
-                      }}>
-                        {p.status === 'checking' ? 'Testing...' : p.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                        <button 
-                          className="btn-action" 
-                          title="Gán cho profiles" 
-                          onClick={() => handleOpenAssignModal(p)}
-                          style={{ color: 'var(--color-accent-hover)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                        >
-                          <UserCheck size={16} />
-                        </button>
-                        <button 
-                          className="btn-action" 
-                          title="Kiểm tra ping" 
-                          onClick={() => handleCheckProxy(p.id)}
-                          style={{ color: 'var(--color-success)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                        >
-                          <RefreshCw size={16} className={p.status === 'checking' ? 'spin-icon' : ''} />
-                        </button>
-                        <button 
-                          className="btn-action" 
-                          title="Sửa thông tin" 
-                          onClick={() => handleOpenEditModal(p)}
-                          style={{ color: 'var(--color-accent)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button 
-                          className="btn-action" 
-                          title="Xóa proxy" 
-                          onClick={() => handleDeleteProxy(p.id)}
-                          style={{ color: 'var(--color-error)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* 10. Bulk Delete Proxy Confirmation Dialog */}
+      <CustomDialog
+        isOpen={isDeleteManyOpen}
+        title="Xác nhận xóa nhiều Proxies"
+        type="danger"
+        onClose={() => setIsDeleteManyOpen(false)}
+        onConfirm={handleDeleteMultipleSubmit}
+        confirmText="Xác nhận xóa tất cả"
+        cancelText="Hủy bỏ"
+      >
+        <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+          Bạn có chắc chắn muốn xóa <strong>{selectedProxyIds.length}</strong> proxies đang được lựa chọn?
+          <div style={{ color: 'var(--color-error)', fontWeight: 650, marginTop: '8px', fontSize: '0.8rem' }}>
+            ⚠️ Thao tác này sẽ gỡ bỏ liên kết proxy của chúng khỏi toàn bộ Chrome Profiles liên quan.
+          </div>
+        </div>
+      </CustomDialog>
     </div>
   );
 };

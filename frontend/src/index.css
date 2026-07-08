@@ -1021,3 +1021,79 @@ body, html, #root {
   background-color: var(--bg-secondary);
   color: var(--text-primary);
 }
+
+/* =====================================================================
+   Unified Resizable & Scrollable Table Styles (Warm Light Theme)
+   ===================================================================== */
+.unified-table-wrapper {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--bg-card);
+  box-shadow: 0 4px 15px rgba(61, 50, 40, 0.02);
+}
+
+.unified-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.unified-table th {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 700;
+  text-align: left;
+  padding: 12px 16px;
+  border-bottom: 2px solid var(--border-color);
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 10;
+}
+
+.unified-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  background-color: var(--bg-card);
+}
+
+.unified-table tr {
+  transition: background-color 0.15s ease;
+}
+
+.unified-table tr:hover td {
+  background-color: #fffaf5;
+}
+
+.unified-table tr.row-selected td {
+  background-color: var(--color-accent-light) !important;
+}
+
+.column-resizer-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background-color: transparent;
+  transition: background-color 0.2s;
+  z-index: 20;
+}
+
+.column-resizer-handle:hover,
+.column-resizer-handle:active {
+  background-color: var(--color-accent);
+}
+

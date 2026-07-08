@@ -21,6 +21,9 @@ import ActionNode from './components/ActionNode';
 import RunModal from './components/RunModal';
 import ProxyManager from './components/ProxyManager';
 import ProfileManager from './components/ProfileManager';
+import ProjectManager from './components/ProjectManager';
+import CustomDialog from './components/CustomDialog';
+import CustomSelect from './components/CustomSelect';
 
 const nodeTypes = {
   actionNode: ActionNode
@@ -64,10 +67,14 @@ function App() {
   const [selectedElement, setSelectedElement] = useState<any>(null);
   const [notification, setNotification] = useState<{ message: string; type: string } | null>(null);
 
-  const [activeTab, setActiveTab] = useState<string>('canvas');
+  const [activeTab, setActiveTab] = useState<string>('projects');
   const [isRunModalOpen, setIsRunModalOpen] = useState<boolean>(false);
   const [activeRuns, setActiveRuns] = useState<any[]>([]);
   const [watchedLogId, setWatchedLogId] = useState<number | null>(null);
+  const [loadingProjects, setLoadingProjects] = useState<boolean>(false);
+
+  // Deletion Dialog State
+  const [deletingElement, setDeletingElement] = useState<{ id: string; isNode: boolean } | null>(null);
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
@@ -144,12 +151,15 @@ function App() {
   }, []);
 
   const fetchProjects = async () => {
+    setLoadingProjects(true);
     try {
       const res = await fetch(`${BASE_URL}/projects`);
       const data = await res.json();
       setProjects(data);
     } catch (e) {
       showNotice('Không thể kết nối đến API Server!', 'error');
+    } finally {
+      setLoadingProjects(false);
     }
   };
 
@@ -398,14 +408,24 @@ function App() {
     );
   };
 
+  // Triggers confirmation dialog instead of immediate deletion
   const onDeleteElement = (elementId: string, isNode: boolean) => {
+    setDeletingElement({ id: elementId, isNode });
+  };
+
+  // Perform actual deletion after CustomDialog confirmation
+  const confirmDeleteElement = () => {
+    if (!deletingElement) return;
+    const { id, isNode } = deletingElement;
+
     if (isNode) {
-      setNodes((nds) => nds.filter((n) => n.id !== elementId));
-      setEdges((eds) => eds.filter((e) => e.source !== elementId && e.target !== elementId));
+      setNodes((nds) => nds.filter((n) => n.id !== id));
+      setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
     } else {
-      setEdges((eds) => eds.filter((e) => e.id !== elementId));
+      setEdges((eds) => eds.filter((e) => e.id !== id));
     }
     setSelectedElement(null);
+    setDeletingElement(null);
   };
 
   // Sync / Save diagram details
@@ -506,17 +526,27 @@ function App() {
   return (
     <div className="app-container">
       <ProjectSidebar
-        projects={projects}
-        activeProject={activeProject}
-        onSelectProject={handleSelectProject}
-        onCreateProject={handleCreateProject}
-        onUpdateProject={handleUpdateProject}
-        onDeleteProject={handleDeleteProject}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+        activeProject={activeProject}
       />
 
-      {activeTab === 'canvas' ? (
+      {activeTab === 'projects' ? (
+        <ProjectManager
+          projects={projects}
+          activeProject={activeProject}
+          onSelectProject={handleSelectProject}
+          onCreateProject={handleCreateProject}
+          onUpdateProject={handleUpdateProject}
+          onDeleteProject={handleDeleteProject}
+          loading={loadingProjects}
+        />
+      ) : activeTab === 'profile' ? (
+        <ProfileManager />
+      ) : activeTab === 'proxy' ? (
+        <ProxyManager />
+      ) : (
+        /* activeTab === 'canvas' (Automation Canvas) */
         <div className="canvas-area">
           <div className="canvas-header">
             <div className="canvas-title-area">
@@ -532,24 +562,18 @@ function App() {
                 {activeRuns.length > 0 && (
                   <div className="watch-thread-container" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '10px' }}>
                     <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>Xem luồng:</span>
-                    <select
-                      className="form-control"
-                      style={{ width: 'auto', padding: '6px 12px', fontSize: '0.8rem', height: 'auto', cursor: 'pointer' }}
+                    <CustomSelect
+                      style={{ minWidth: '160px' }}
                       value={watchedLogId || ''}
-                      onChange={(e) => setWatchedLogId(parseInt(e.target.value) || null)}
-                    >
-                      {activeRuns.map((run, idx) => {
+                      onChange={(val) => setWatchedLogId(parseInt(val) || null)}
+                      options={activeRuns.map((run, idx) => {
                         const titleText = run.title || run.target_url || '';
-                        const displayName = titleText.includes("Profile:") 
-                          ? titleText.split("Profile:")[1].replace(")", "").trim() 
+                        const displayName = titleText.includes("Profile:")
+                          ? titleText.split("Profile:")[1].replace(")", "").trim()
                           : `Log ${run.id}`;
-                        return (
-                          <option key={run.id} value={run.id}>
-                            Luồng {idx + 1} ({displayName})
-                          </option>
-                        );
+                        return { value: run.id, label: `Luồng ${idx + 1} (${displayName})` };
                       })}
-                    </select>
+                    />
                   </div>
                 )}
                 <button className="btn-primary" onClick={() => setIsRunModalOpen(true)} style={{ backgroundColor: 'var(--color-success)', width: 'auto' }}>
@@ -597,17 +621,14 @@ function App() {
           ) : (
             <div className="empty-placeholder">
               <AlertCircle size={48} style={{ color: 'var(--color-accent)' }} />
-              <h4>Chọn hoặc tạo một Dự án</h4>
-              <p>Vui lòng lựa chọn một dự án có sẵn ở thanh bên trái hoặc điền thông tin để tạo dự án mới, sau đó bạn sẽ có thể kéo thả thiết kế kịch bản tự động hóa trực quan.</p>
+              <h4>Chọn dự án hoạt động để thiết kế</h4>
+              <p>Hiện chưa có dự án nào được chọn để chỉnh sửa kịch bản. Vui lòng chuyển sang tab <strong>Quản lý Project</strong> và nhấn chọn dự án để tiếp tục vẽ sơ đồ kịch bản tự động hóa.</p>
             </div>
           )}
         </div>
-      ) : activeTab === 'proxy' ? (
-        <ProxyManager />
-      ) : (
-        <ProfileManager />
       )}
 
+      {/* Node Details Sidebar */}
       <NodeDetailsSidebar
         selectedElement={selectedElement}
         onUpdateNode={onUpdateNode}
@@ -616,12 +637,31 @@ function App() {
         onClose={() => setSelectedElement(null)}
       />
 
+      {/* Execution Run Modal */}
       <RunModal
         isOpen={isRunModalOpen}
         onClose={() => setIsRunModalOpen(false)}
         onConfirm={handleRunAutomation}
       />
 
+      {/* Canvas Element Delete Confirmation Dialog */}
+      <CustomDialog
+        isOpen={!!deletingElement}
+        title="Xác nhận xóa phần tử"
+        type="danger"
+        onClose={() => setDeletingElement(null)}
+        onConfirm={confirmDeleteElement}
+        confirmText="Xác nhận xóa"
+        cancelText="Hủy bỏ"
+      >
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+          Bạn có chắc chắn muốn xóa {deletingElement?.isNode ? 'hành động kịch bản này' : 'đường nối liên kết này'} khỏi Canvas?
+          <br />
+          <span style={{ color: 'var(--color-error)', fontWeight: 600 }}>⚠️ Lưu ý: Sau khi lưu sơ đồ, thao tác xóa sẽ được cập nhật vĩnh viễn vào DB.</span>
+        </p>
+      </CustomDialog>
+
+      {/* Toast Notification */}
       {notification && (
         <div 
           className="notification" 

@@ -19,10 +19,21 @@ export class GetChromeProfileByIdUseCase {
 export class CreateChromeProfileUseCase {
   constructor(private profileRepository: IChromeProfileRepository) {}
   async execute(profileData: Omit<ChromeProfile, 'id' | 'createdAt'>): Promise<ChromeProfileDto> {
-    if (!profileData.name || !profileData.folderName) {
-      throw new Error('Name and Folder Name are required for Chrome Profile.');
+    if (!profileData.name) {
+      throw new Error('Profile name is required.');
     }
-    
+
+    // Auto-generate folderName if not provided
+    if (!profileData.folderName) {
+      const slug = profileData.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 24);
+      const suffix = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      profileData.folderName = `${slug}_${suffix}`;
+    }
+
     // Check if duplicate folderName exists
     const existing = await this.profileRepository.getByFolderName(profileData.folderName);
     if (existing) {

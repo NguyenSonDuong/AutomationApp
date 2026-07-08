@@ -215,7 +215,13 @@ async function bootstrap() {
     });
 
     // 9. Socket.io Event Handling
-    const automationSocketController = new AutomationSocketController(io);
+    const automationSocketController = new AutomationSocketController(
+      io,
+      profileRepository,
+      proxyRepository,
+      stepRepository,
+      projectRepository
+    );
 
     io.on('connection', (socket) => {
       console.log(`[Socket] Client connected: ${socket.id}`);
